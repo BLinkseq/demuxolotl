@@ -25,3 +25,7 @@ jobs:
         run: |
             bin/demuxolotl --qx-rx testing test/gih.R*.gz &&\
             zcat testing.R1.fq.gz | head
+      - name: Demultiplex with ME-discard output
+        run: |
+            bin/demuxolotl -d testing test/gih.R*.gz &&\
+            zcat testing.noME.fq.gz | head
