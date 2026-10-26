@@ -92,6 +92,18 @@ var QXTAG []byte = []byte{'\t', 'Q', 'X', ':', 'Z', ':'}
 var RXTAG []byte = []byte{'\t', 'R', 'X', ':', 'Z', ':'}
 var NEWLINE []byte = []byte{'\n', '+', '\n'}
 
+// Write a unmodified FASTQ record to a buffer
+func writeFastqVanilla(b *bytes.Buffer, name []byte, dir string, seq, qual []byte) {
+	b.WriteByte('@')
+	b.Write(name)
+	b.WriteString(dir)
+	b.WriteByte('\n')
+	b.Write(seq)
+	b.Write(NEWLINE)
+	b.Write(qual)
+	b.WriteByte('\n')
+}
+
 // Write a FASTQ record to a buffer with BX:Z and VX:i tags
 func writeFastq(b *bytes.Buffer, name []byte, dir, bx string, vx int, seq, qual []byte) {
 	b.WriteByte('@')

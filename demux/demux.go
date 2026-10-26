@@ -91,14 +91,18 @@ type worker struct {
 	qxrx        bool
 }
 
-// process handles one pair. keep is false when the ME was not found.
+// process handles one pair, won't write files if ME isn't found, unless keepMe is true.
 // It appends the two FASTQ records to o1/o2.
-func (w *worker) process(p *readPair, o1, o2 *bytes.Buffer) {
+func (w *worker) process(p *readPair, o1, o2, me12 *bytes.Buffer, keepMe bool) {
 	w.st.total++
 	fq1, fq2 := &p.fq1, &p.fq2
 	mePos := findME(fq1.seq, w.me, w.maxMismatch)
 	if mePos == -1 {
 		w.st.discarded++
+		if keepMe {
+			writeFastqVanilla(me12, fq1.name, "/1", fq1.seq, fq1.qual)
+			writeFastqVanilla(me12, fq2.name, "/2", fq2.seq, fq2.qual)
+		}
 		return
 	}
 	plen := 7
@@ -178,9 +182,9 @@ func (w *worker) process(p *readPair, o1, o2 *bytes.Buffer) {
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
-type result struct{ r1, r2 *bytes.Buffer }
+type result struct{ r1, r2, me12 *bytes.Buffer }
 
-func Demux(r1, r2, prefix, meSeq, schema string, maxMM int, qxrx bool, threads int) error {
+func Demux(r1, r2, prefix, meSeq, schema string, maxMM int, qxrx, keepdiscard bool, threads int) error {
 	decoders, r1Start, err := loadConfig(schema)
 	if err != nil {
 		return fmt.Errorf("Error reading config: %v", err)
@@ -215,6 +219,17 @@ func Demux(r1, r2, prefix, meSeq, schema string, maxMM int, qxrx bool, threads i
 		return fmt.Errorf("Error opening R2 output: %v", err)
 	}
 
+	//---- ME discards file -----------------
+	var meOut *gzOut
+
+	if keepdiscard {
+		meOut, err = newGzOut(prefix+".noME.fq.gz", max(threads/2, 1))
+		if err != nil {
+			return fmt.Errorf("Error opening ME discards output: %v", err)
+		}
+		defer meOut.close()
+	}
+
 	// batches are decoded in parallel and written in input order
 	type job struct {
 		batch []readPair
@@ -231,9 +246,9 @@ func Demux(r1, r2, prefix, meSeq, schema string, maxMM int, qxrx bool, threads i
 		wg.Go(func() {
 			w := &worker{decs: decoders, r1Start: r1Start, me: []byte(strings.ToUpper(meSeq)), maxMismatch: float64(maxMM), bxSet: map[string]struct{}{}, qxrx: qxrx}
 			for j := range jobs {
-				r := result{new(bytes.Buffer), new(bytes.Buffer)}
+				r := result{new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)}
 				for i := range j.batch {
-					w.process(&j.batch[i], r.r1, r.r2)
+					w.process(&j.batch[i], r.r1, r.r2, r.me12, keepdiscard)
 				}
 				j.res <- r
 			}
@@ -252,6 +267,11 @@ func Demux(r1, r2, prefix, meSeq, schema string, maxMM int, qxrx bool, threads i
 			if writeErr == nil {
 				_, e1 := out1.buf.Write(r.r1.Bytes())
 				_, e2 := out2.buf.Write(r.r2.Bytes())
+				if keepdiscard {
+					_, e3 := meOut.buf.Write(r.me12.Bytes())
+					writeErr = errors.Join(e1, e2, e3)
+					continue
+				}
 				writeErr = errors.Join(e1, e2)
 			}
 		}

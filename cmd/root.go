@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var VERSION string = "1.0"
+var VERSION string = "1.1"
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -65,12 +65,13 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		threads, _ := cmd.Flags().GetInt("threads")
 		qxrx, _ := cmd.Flags().GetBool("qx-rx")
+		keepdiscard, _ := cmd.Flags().GetBool("keep-discarded")
 		maxmiss, _ := cmd.Flags().GetInt("max-mismatch")
 		me_seq, _ := cmd.Flags().GetString("me")
 		schema, _ := cmd.Flags().GetString("schema")
 		threads = safethreads(threads)
 		runtime.GOMAXPROCS(safethreads(threads))
-		return demux.Demux(args[1], args[2], args[0], me_seq, schema, maxmiss, qxrx, threads)
+		return demux.Demux(args[1], args[2], args[0], me_seq, schema, maxmiss, qxrx, keepdiscard, threads)
 	},
 }
 
@@ -79,6 +80,7 @@ func init() {
 	rootCmd.Flags().StringP("me", "m", "AGATGTGTATAAGAGACAG", "ME sequence to search for")
 	rootCmd.Flags().IntP("max-mismatch", "x", 2, "Maximum allowable ME mismatch score")
 	rootCmd.Flags().BoolP("qx-rx", "q", false, "Output tags QX:Z (barcode quality) and RX:Z (corrected barcode)")
+	rootCmd.Flags().BoolP("keep-discarded", "d", false, "Retain reads discarded for not having an ME sequence in prefix.noME.fq.gz")
 	rootCmd.Flags().StringP("schema", "s", "use embedded", "Pheniqs-style JSON schema file with the barcodes and decoder settings")
 
 	//rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
