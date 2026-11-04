@@ -1,5 +1,6 @@
-# demuxolotl
-Demultiplex BLink-seq barcodes from raw FASTQ files.
+![demuxolotl logo](misc/demuxolotl.png)
+
+Demultiplex BLink-seq barcodes from raw FASTQ files. Because you don't just demux a little, you demuxolotl.
 
 This is a small program, originally part of Harpy, that demultiplexes the linked-read barcodes out of raw BLink-seq FASTQ files.
 It's intended to work on data that's already been demultiplexed at the sample level, which should have been done by the sequencing
